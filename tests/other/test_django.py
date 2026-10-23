@@ -68,6 +68,15 @@ def test_django_landing_page_loads(django_):
     assert response.json()["title"] == "pygeoapi default instance"
 
 
+def test_django_settings_secure_defaults(django_):
+    from django.conf import settings
+
+    assert settings.DEBUG is False
+    assert settings.SECRET_KEY != \
+        ')#cqm2jfato)gk((nm#%r7h&#n&aqy00_21pavfp=l8)4%cegb'
+    assert 'localhost' in settings.ALLOWED_HOSTS
+
+
 def test_django_edr_without_instance_id(django_):
     edr_position_query = ("/collections/icoads-sst/position?coords="
                           "POINT(12.779895 55.783523)&f=json")

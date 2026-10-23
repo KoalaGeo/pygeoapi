@@ -668,7 +668,7 @@ def serve(ctx, server: str | None = None, debug: bool = False):
     """
 
     # setup_logger(CONFIG['logging'])
-    APP.run(debug=True, host=api_.config['server']['bind']['host'],
+    APP.run(debug=debug, host=api_.config['server']['bind']['host'],
             port=api_.config['server']['bind']['port'])
 
 

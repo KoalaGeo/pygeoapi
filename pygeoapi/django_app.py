@@ -38,10 +38,13 @@ from pathlib import Path
 import sys
 
 from pygeoapi.config import get_config
+from pygeoapi.util import str2bool
 
 
-def main():
+def main(debug: bool = False):
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'django_.settings')
+    if debug:
+        os.environ.setdefault('PYGEOAPI_DJANGO_DEBUG', 'true')
     django_app_path = Path(os.path.dirname(__file__))
     try:
         from django.core.management import execute_from_command_line
@@ -57,6 +60,10 @@ def main():
     bind = f"{CONFIG['server']['bind']['host']}:{CONFIG['server']['bind']['port']}"  # noqa
 
     sys.argv = [str(django_app_path / 'django_app.py'), 'runserver', bind]
+
+    if not str2bool(os.environ.get('PYGEOAPI_DJANGO_DEBUG', False)):
+        # let the development server serve static files without DEBUG
+        sys.argv.append('--insecure')
 
     sys.path.append(str(django_app_path))
 
