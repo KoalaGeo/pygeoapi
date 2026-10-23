@@ -81,8 +81,8 @@ jobs:
     - name: Chown user
       run: |
         sudo chown -R $USER:$USER $GITHUB_WORKSPACE
-    - uses: actions/checkout@master
-    - uses: actions/setup-python@v5
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+    - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5.6.0
       name: Setup Python ${{ matrix.python-version }}
       with:
         python-version: ${{ matrix.python-version }}
@@ -102,7 +102,7 @@ jobs:
         sudo sysctl -w fs.file-max=262144
         sudo sysctl -w vm.max_map_count=262144
     - name: Install sqlite and gpkg dependencies
-      uses: awalsh128/cache-apt-pkgs-action@v1.4.3
+      uses: awalsh128/cache-apt-pkgs-action@5902b33ae29014e6ca012c5d8025d4346556bd40  # v1.4.3
       with:
         packages: libsqlite3-mod-spatialite
         version: 4.3.0a-6build1

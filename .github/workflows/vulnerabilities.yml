@@ -22,9 +22,9 @@ jobs:
         working-directory: .
     steps:
     - name: Checkout pygeoapi
-      uses: actions/checkout@master
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
     - name: Scan vulnerabilities with trivy
-      uses: aquasecurity/trivy-action@v0.35.0
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
       with:
         scan-type: fs
         exit-code: 1
@@ -39,7 +39,7 @@ jobs:
       run: |
         docker buildx build -t ${{ env.IMAGE_NAME }}:${{ github.sha }} --platform linux/amd64 --no-cache -f Dockerfile .
     - name: Scan locally built Docker image for vulnerabilities with trivy
-      uses: aquasecurity/trivy-action@v0.35.0
+      uses: aquasecurity/trivy-action@57a97c7e7821a5776cebc9bb87c984fa69cba8f1  # v0.35.0
       env:
         TRIVY_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-db:2
         TRIVY_JAVA_DB_REPOSITORY: public.ecr.aws/aquasecurity/trivy-java-db:1
