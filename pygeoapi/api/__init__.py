@@ -1158,6 +1158,28 @@ def validate_bbox(value: list | None = None) -> list:
     return bbox
 
 
+def _dateparse(value: str, default: datetime) -> datetime:
+    """
+    Helper function to parse a datetime string, raising `ValueError`
+    for any unparseable value
+
+    dateutil raises `OverflowError` (rather than `ValueError`) for
+    numeric components too large to represent (e.g. `99999999999999999999`)
+
+    :param value: `str` of datetime
+    :param default: `datetime` used to fill in missing components
+
+    :returns: `datetime` of parsed value
+    """
+
+    try:
+        return dateparse(value, default=default)
+    except OverflowError as err:
+        msg = 'datetime parameter out of range'
+        LOGGER.debug(f'{msg}: {err}')
+        raise ValueError(msg) from err
+
+
 def validate_datetime(resource_def: dict,
                       datetime_: str | None = None) -> str:
     """
@@ -1180,10 +1202,10 @@ def validate_datetime(resource_def: dict,
 
     if datetime_ is not None and 'temporal' in resource_def:
 
-        dateparse_begin = partial(dateparse, default=datetime.min)
-        dateparse_end = partial(dateparse, default=datetime.max)
+        dateparse_begin = partial(_dateparse, default=datetime.min)
+        dateparse_end = partial(_dateparse, default=datetime.max)
         unix_epoch = datetime(1970, 1, 1, 0, 0, 0)
-        dateparse_ = partial(dateparse, default=unix_epoch)
+        dateparse_ = partial(_dateparse, default=unix_epoch)
 
         te = resource_def['temporal']
 

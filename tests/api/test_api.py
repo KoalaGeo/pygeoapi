@@ -954,6 +954,12 @@ def test_validate_datetime():
     with pytest.raises(ValueError):
         _ = validate_datetime(config, '../1999')
 
+    # values too large for dateutil raise OverflowError internally
+    for value in ['99999999999999999999', '9999999999-01-01',
+                  '2004/99999999999999999999', '99999999999999999999/..']:
+        with pytest.raises(ValueError):
+            _ = validate_datetime(config, value)
+
 
 @pytest.mark.parametrize("value, expected", [
     ('time(2000-11-11)', {'time': ['2000-11-11']}),
