@@ -34,6 +34,7 @@ import logging
 import requests
 
 from pygeoapi.pubsub.base import BasePubSubClient, PubSubClientConnectionError
+from pygeoapi.util import HTTP_TIMEOUT
 
 LOGGER = logging.getLogger(__name__)
 
@@ -96,7 +97,8 @@ class HTTPPubSubClient(BasePubSubClient):
         url = f'{self.broker}/{channel}'
 
         try:
-            response = requests.post(url, auth=self.auth, json=message)
+            response = requests.post(url, auth=self.auth, json=message,
+                                     timeout=HTTP_TIMEOUT)
             response.raise_for_status()
         except Exception as err:
             raise PubSubClientConnectionError(err)

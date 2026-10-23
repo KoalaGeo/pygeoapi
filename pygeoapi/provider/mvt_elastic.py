@@ -40,7 +40,7 @@ from pygeoapi.provider.base import (ProviderConnectionError,
 from pygeoapi.provider.tile import ProviderTileNotFoundError
 from pygeoapi.models.provider.base import (
     TileSetMetadata, TileMatrixSetEnum, LinkType)
-from pygeoapi.util import is_url, url_join
+from pygeoapi.util import HTTP_TIMEOUT, is_url, url_join
 
 LOGGER = logging.getLogger(__name__)
 
@@ -174,11 +174,13 @@ class MVTElasticProvider(BaseMVTProvider):
             else:
                 url_query = ''
 
+            resp = None
+
             try:
                 with requests.Session() as session:
                     data = {'fields': ['*']}
-                    session.get(base_url)
-                    resp = session.get(f'{base_url}/{layer}/{z}/{x}/{y}{url_query}', json=data)  # noqa
+                    resp = session.get(f'{base_url}/{layer}/{z}/{x}/{y}{url_query}', json=data,  # noqa
+                                       timeout=HTTP_TIMEOUT)
 
                     if resp.status_code == 404:
                         if (self.is_in_limits(TileMatrixSetEnum.WEBMERCATORQUAD.value, z, x, y)): # noqa
@@ -189,7 +191,7 @@ class MVTElasticProvider(BaseMVTProvider):
                     return resp.content
             except requests.exceptions.RequestException as e:
                 LOGGER.debug(e)
-                if resp.status_code < 500:
+                if resp is not None and resp.status_code < 500:
                     raise ProviderInvalidQueryError  # Client is sending an invalid request # noqa
                 raise ProviderGenericError  # Server error
         else:

@@ -52,6 +52,7 @@ import requests
 from pygeoapi.crs import crs_transform
 from pygeoapi.provider.base import (
     BaseProvider, ProviderNotFoundError, ProviderQueryError)
+from pygeoapi.util import HTTP_TIMEOUT
 
 LOGGER = logging.getLogger(__name__)
 
@@ -133,7 +134,7 @@ class TabledapProvider(BaseProvider):
         url = f'{url}?{"&".join(query_params)}'
 
         LOGGER.debug(f'Fetching data from {url}')
-        response = requests.get(url)
+        response = requests.get(url, timeout=HTTP_TIMEOUT)
         LOGGER.debug(f'Response: {response}')
         data = response.json()
         LOGGER.debug(f'Data: {data}')
@@ -188,7 +189,7 @@ class TabledapProvider(BaseProvider):
         url = f'{url}?{"&".join(query_params)}'
         LOGGER.debug(f'Fetching data from {url}')
 
-        response = requests.get(url)
+        response = requests.get(url, timeout=HTTP_TIMEOUT)
         LOGGER.debug(f'Response: {response}')
         data = response.json()
         LOGGER.debug(f'Data: {data}')

@@ -34,7 +34,7 @@ import os
 import json
 
 from pygeoapi.provider.base import (BaseProvider, ProviderNotFoundError)
-from pygeoapi.util import url_join
+from pygeoapi.util import HTTP_TIMEOUT, url_join
 
 LOGGER = logging.getLogger(__name__)
 
@@ -229,7 +229,7 @@ def _get_json_data(jsonpath):
     """
 
     if jsonpath[0:4].upper() == 'HTTP':
-        jsondata = requests.get(jsonpath).json()
+        jsondata = requests.get(jsonpath, timeout=HTTP_TIMEOUT).json()
     else:
         with open(jsonpath) as fh:
             jsondata = json.load(fh)

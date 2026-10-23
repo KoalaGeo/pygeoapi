@@ -36,7 +36,7 @@ from requests import Session, codes
 from pygeoapi.crs import get_srid
 from pygeoapi.provider.base import (BaseProvider, ProviderConnectionError,
                                     ProviderTypeError, ProviderQueryError)
-from pygeoapi.util import format_datetime
+from pygeoapi.util import format_datetime, HTTP_TIMEOUT
 
 LOGGER = logging.getLogger(__name__)
 
@@ -229,7 +229,8 @@ class ESRIServiceProvider(BaseProvider):
             }
 
             LOGGER.debug('Logging in')
-            with self.session.post(self.token_url, data=params) as r:
+            with self.session.post(self.token_url, data=params,
+                                   timeout=HTTP_TIMEOUT) as r:
                 self.token = r.json().get('token')
                 # https://enterprise.arcgis.com/en/server/latest/administer/windows/about-arcgis-tokens.htm
                 self.session.headers.update({
@@ -249,6 +250,7 @@ class ESRIServiceProvider(BaseProvider):
 
         # Form URL for GET request
         LOGGER.debug('Sending query')
+        kwargs.setdefault('timeout', HTTP_TIMEOUT)
         with self.session.get(url, **kwargs) as r:
 
             if r.status_code == codes.bad:
