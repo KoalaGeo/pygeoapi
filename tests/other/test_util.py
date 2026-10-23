@@ -37,7 +37,7 @@ from xml.sax.saxutils import unescape
 
 import pytest
 
-from pygeoapi import util
+from pygeoapi import l10n, util
 from pygeoapi.api import __version__
 from pygeoapi.provider import get_provider_by_type, get_provider_default
 from pygeoapi.provider.base import ProviderTypeError
@@ -329,6 +329,49 @@ def test_get_choice_from_headers():
                                         'accept') == 'application/ld+json'
     assert util.get_choice_from_headers(
         {'accept-language': 'en_US', 'accept': '*/*'}, 'accept') == '*/*'
+
+
+def test_render_j2_template_reuses_environment(config, tmp_path):
+    from babel.messages.mofile import write_mo
+    from babel.messages.pofile import read_po
+    from jinja2.exceptions import TemplateNotFound
+
+    # compile the French catalogue into a temporary locale directory
+    mo_dir = tmp_path / 'fr' / 'LC_MESSAGES'
+    mo_dir.mkdir(parents=True)
+    with open('locale/fr/LC_MESSAGES/messages.po', 'rb') as fh:
+        catalog = read_po(fh, locale='fr')
+    with (mo_dir / 'messages.mo').open('wb') as fh:
+        write_mo(fh, catalog)
+
+    config['server']['locale_dir'] = str(tmp_path)
+    tpl_config = {'path': util.TEMPLATESDIR}
+    data = {'code': 'NotFound', 'description': 'test'}
+
+    util._JINJA_ENVIRONMENTS.clear()
+
+    locale_fr = l10n.str2locale('fr')
+    locale_en = l10n.str2locale('en')
+
+    for _ in range(3):
+        fr = util.render_j2_template(config, tpl_config, 'exception.html',
+                                     data, locale_fr)
+        en = util.render_j2_template(config, tpl_config, 'exception.html',
+                                     data, locale_en)
+
+    # one environment per locale, reused across renders
+    assert len(util._JINJA_ENVIRONMENTS) == 2
+
+    # translations must not leak between cached environments
+    assert 'Accueil' in fr
+    assert 'Accueil' not in en
+    assert 'Home' in en
+
+    with pytest.raises(TemplateNotFound):
+        util.render_j2_template(config, tpl_config, 'does-not-exist.html',
+                                data, locale_en)
+
+    util._JINJA_ENVIRONMENTS.clear()
 
 
 @pytest.mark.parametrize('url,allow_internal,result', [

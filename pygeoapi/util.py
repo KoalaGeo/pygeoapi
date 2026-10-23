@@ -53,7 +53,6 @@ import uuid
 import dateutil.parser
 from babel.support import Translations
 from jinja2 import Environment, FileSystemLoader, select_autoescape
-from jinja2.exceptions import TemplateNotFound
 from requests import Session
 from requests.structures import CaseInsensitiveDict
 from shapely.geometry import (
@@ -459,6 +458,60 @@ def is_url(urlstring: str) -> bool:
         return False
 
 
+#: Jinja2 environments, keyed by template search paths, locale directory
+#: and locale. All of these come from configuration, so the cache is bounded
+_JINJA_ENVIRONMENTS = {}
+
+
+def _get_jinja_environment(template_paths: tuple, locale_dir: str,
+                           locale_: str = None) -> Environment:
+    """
+    Get a Jinja2 environment, reusing a previously built one if available.
+
+    Building an environment per render throws away Jinja2's compiled
+    template cache and re-reads translation catalogues from disk, which
+    makes every HTML response recompile all templates involved.
+
+    :param template_paths: `tuple` of template search paths
+    :param locale_dir: locale directory
+    :param locale_: the requested output Locale
+
+    :returns: `jinja2.Environment`
+    """
+
+    key = (template_paths, locale_dir, str(locale_))
+
+    env = _JINJA_ENVIRONMENTS.get(key)
+    if env is not None:
+        return env
+
+    env = Environment(loader=FileSystemLoader(template_paths),
+                      extensions=['jinja2.ext.i18n'],
+                      autoescape=select_autoescape())
+
+    env.filters['to_json'] = to_json
+    env.filters['format_datetime'] = format_datetime
+    env.filters['format_duration'] = format_duration
+    env.filters['human_size'] = human_size
+    env.globals.update(to_json=to_json)
+
+    env.filters['get_path_basename'] = get_path_basename
+    env.globals.update(get_path_basename=get_path_basename)
+
+    env.filters['get_breadcrumbs'] = get_breadcrumbs
+    env.globals.update(get_breadcrumbs=get_breadcrumbs)
+
+    env.filters['filter_dict_by_key_value'] = filter_dict_by_key_value
+    env.globals.update(filter_dict_by_key_value=filter_dict_by_key_value)
+
+    translations = Translations.load(locale_dir, [locale_])
+    env.install_gettext_translations(translations)
+
+    _JINJA_ENVIRONMENTS[key] = env
+
+    return env
+
+
 def render_j2_template(config: dict, tpl_config: dict, template: Path,
                        data: dict, locale_: str = None) -> str:
     """
@@ -485,34 +538,9 @@ def render_j2_template(config: dict, tpl_config: dict, template: Path,
     except (KeyError, TypeError):
         LOGGER.debug(f'using default templates: {TEMPLATESDIR}')
 
-    env = Environment(loader=FileSystemLoader(template_paths),
-                      extensions=['jinja2.ext.i18n'],
-                      autoescape=select_autoescape())
+    env = _get_jinja_environment(tuple(template_paths), locale_dir, locale_)
 
-    env.filters['to_json'] = to_json
-    env.filters['format_datetime'] = format_datetime
-    env.filters['format_duration'] = format_duration
-    env.filters['human_size'] = human_size
-    env.globals.update(to_json=to_json)
-
-    env.filters['get_path_basename'] = get_path_basename
-    env.globals.update(get_path_basename=get_path_basename)
-
-    env.filters['get_breadcrumbs'] = get_breadcrumbs
-    env.globals.update(get_breadcrumbs=get_breadcrumbs)
-
-    env.filters['filter_dict_by_key_value'] = filter_dict_by_key_value
-    env.globals.update(filter_dict_by_key_value=filter_dict_by_key_value)
-
-    translations = Translations.load(locale_dir, [locale_])
-    env.install_gettext_translations(translations)
-
-    try:
-        template = env.get_template(template)
-    except TemplateNotFound:
-        LOGGER.debug(f'template {template} not found')
-        template_paths.remove(templates)
-        template = env.get_template(template)
+    template = env.get_template(template)
 
     return template.render(config=l10n.translate_struct(config, locale_, True),
                            data=data, locale=locale_, version=__version__)
