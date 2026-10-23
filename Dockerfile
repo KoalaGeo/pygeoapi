@@ -115,7 +115,9 @@ RUN apt-get update -y \
     && echo "For ${TZ} date=$(date)" && echo "Locale=$(locale)"  \
     # OGC schemas local setup
     && mkdir /schemas.opengis.net \
-    && curl -O http://schemas.opengis.net/SCHEMAS_OPENGIS_NET.zip \
+    && curl --fail --silent --show-error --location \
+        --proto '=https' --proto-redir '=https' \
+        -O https://schemas.opengis.net/SCHEMAS_OPENGIS_NET.zip \
     && unzip ./SCHEMAS_OPENGIS_NET.zip "ogcapi/*" -d /schemas.opengis.net \
     && rm -f ./SCHEMAS_OPENGIS_NET.zip \
     # Cleanup TODO: remove unused Locales and TZs
