@@ -302,6 +302,42 @@ def test_prefetcher():
     assert headers.get('content-type') == 'image/png'
 
 
+def test_prefetcher_cache():
+    prefetcher = util.UrlPrefetcher(ttl=100, error_ttl=10)
+    url = 'https://example.org/data.zip'
+
+    ok = mock.Mock(headers={'content-length': '42'})
+    bad = mock.Mock()
+    bad.raise_for_status.side_effect = Exception('HTTP 503')
+
+    now = 1000.0
+    with mock.patch.object(prefetcher._session, 'head',
+                           return_value=ok) as head, \
+            mock.patch.object(util, 'monotonic', side_effect=lambda: now):
+        assert prefetcher.get_headers(url) == {'content-length': '42'}
+        assert prefetcher.get_headers(url) == {'content-length': '42'}
+        assert head.call_count == 1
+
+        # different request options are cached separately
+        prefetcher.get_headers(url, allow_redirects=False)
+        assert head.call_count == 2
+
+        # refreshed once the TTL has expired
+        now += 101
+        prefetcher.get_headers(url)
+        assert head.call_count == 3
+
+        # failures are cached for the (shorter) error TTL
+        head.return_value = bad
+        bad_url = 'https://example.org/missing.zip'
+        assert prefetcher.get_headers(bad_url) == {}
+        assert prefetcher.get_headers(bad_url) == {}
+        assert head.call_count == 4
+        now += 11
+        assert prefetcher.get_headers(bad_url) == {}
+        assert head.call_count == 5
+
+
 def test_get_choice_from_headers():
     _headers = {
         'accept': 'text/html;q=0.5,application/ld+json',
