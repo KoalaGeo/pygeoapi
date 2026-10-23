@@ -59,8 +59,23 @@ WSGI_APP=${WSGI_APP:=pygeoapi.flask_app:APP}
 WSGI_WORKERS=${WSGI_WORKERS:=4}
 WSGI_WORKER_TIMEOUT=${WSGI_WORKER_TIMEOUT:=6000}
 WSGI_WORKER_CLASS=${WSGI_WORKER_CLASS:=gevent}
+# keep-alive should exceed the idle timeout of any load balancer / ingress
+# in front of pygeoapi, otherwise reused upstream connections get closed
+# under the proxy and surface as intermittent 502s
+WSGI_KEEP_ALIVE=${WSGI_KEEP_ALIVE:=75}
+# time workers get to finish in-flight requests after SIGTERM; keep it
+# below the Kubernetes terminationGracePeriodSeconds
+WSGI_GRACEFUL_TIMEOUT=${WSGI_GRACEFUL_TIMEOUT:=30}
+# recycle workers after N requests (0 disables) to bound memory growth
+WSGI_MAX_REQUESTS=${WSGI_MAX_REQUESTS:=0}
+WSGI_MAX_REQUESTS_JITTER=${WSGI_MAX_REQUESTS_JITTER:=0}
+# worker heartbeat files; tmpfs avoids heartbeat stalls on overlay filesystems
+WSGI_WORKER_TMP_DIR=${WSGI_WORKER_TMP_DIR:=/dev/shm}
+# access log destination, e.g. '-' for stdout (default: disabled)
+WSGI_ACCESS_LOG=${WSGI_ACCESS_LOG:=}
 
 # pygeoapi env settings with defaults
+PYGEOAPI_OPENAPI_GENERATE=${PYGEOAPI_OPENAPI_GENERATE:=true}
 PYGEOAPI_OPENAPI_GENERATE_FAIL_ON_INVALID_COLLECTION=${PYGEOAPI_OPENAPI_GENERATE_FAIL_ON_INVALID_COLLECTION:=true}
 
 if [ ${PYGEOAPI_OPENAPI_GENERATE_FAIL_ON_INVALID_COLLECTION} = false ] ; then
@@ -83,12 +98,18 @@ cd ${PYGEOAPI_HOME}
 
 echo "Default config in ${PYGEOAPI_CONFIG}"
 
-echo "Trying to generate openapi.yml"
-/venv/bin/pygeoapi openapi generate ${PYGEOAPI_CONFIG} --output-file ${PYGEOAPI_OPENAPI} ${OPENAPI_GENERATE_FAIL_ON_INVALID_COLLECTION}
+if [ ${PYGEOAPI_OPENAPI_GENERATE} = false ] ; then
+    # e.g. a pre-generated document mounted from a ConfigMap
+    [[ -f "${PYGEOAPI_OPENAPI}" ]] || error "PYGEOAPI_OPENAPI_GENERATE=false but ${PYGEOAPI_OPENAPI} does not exist"
+    echo "Skipping openapi.yml generation, using ${PYGEOAPI_OPENAPI}"
+else
+    echo "Trying to generate openapi.yml"
+    /venv/bin/pygeoapi openapi generate ${PYGEOAPI_CONFIG} --output-file ${PYGEOAPI_OPENAPI} ${OPENAPI_GENERATE_FAIL_ON_INVALID_COLLECTION}
 
-[[ $? -ne 0 ]] && error "openapi.yml could not be generated ERROR"
+    [[ $? -ne 0 ]] && error "openapi.yml could not be generated ERROR"
 
-echo "openapi.yml generated continue to pygeoapi"
+    echo "openapi.yml generated continue to pygeoapi"
+fi
 
 echo "Trying to generate asyncapi.yml"
 /venv/bin/pygeoapi asyncapi generate ${PYGEOAPI_CONFIG} --output-file ${PYGEOAPI_ASYNCAPI}
@@ -99,10 +120,27 @@ start_gunicorn() {
     # SCRIPT_NAME should not have value '/'
     [[ "${SCRIPT_NAME}" = '/' ]] && export SCRIPT_NAME="" && echo "make SCRIPT_NAME empty from /"
 
+    # fall back to gunicorn's default if the heartbeat dir is unusable
+    WORKER_TMP_DIR_OPTS=""
+    if [[ -n "${WSGI_WORKER_TMP_DIR}" && -d "${WSGI_WORKER_TMP_DIR}" && -w "${WSGI_WORKER_TMP_DIR}" ]]; then
+        WORKER_TMP_DIR_OPTS="--worker-tmp-dir ${WSGI_WORKER_TMP_DIR}"
+    fi
+
+    ACCESS_LOG_OPTS=""
+    if [[ -n "${WSGI_ACCESS_LOG}" ]]; then
+        ACCESS_LOG_OPTS="--access-logfile ${WSGI_ACCESS_LOG}"
+    fi
+
     echo "Starting gunicorn name=${CONTAINER_NAME} on ${CONTAINER_HOST}:${CONTAINER_PORT} with ${WSGI_WORKERS} workers and SCRIPT_NAME=${SCRIPT_NAME}"
     exec /venv/bin/gunicorn --workers ${WSGI_WORKERS} \
         --worker-class=${WSGI_WORKER_CLASS} \
         --timeout ${WSGI_WORKER_TIMEOUT} \
+        --graceful-timeout ${WSGI_GRACEFUL_TIMEOUT} \
+        --keep-alive ${WSGI_KEEP_ALIVE} \
+        --max-requests ${WSGI_MAX_REQUESTS} \
+        --max-requests-jitter ${WSGI_MAX_REQUESTS_JITTER} \
+        ${WORKER_TMP_DIR_OPTS} \
+        ${ACCESS_LOG_OPTS} \
         --name=${CONTAINER_NAME} \
         --bind ${CONTAINER_HOST}:${CONTAINER_PORT} \
         ${@} \
