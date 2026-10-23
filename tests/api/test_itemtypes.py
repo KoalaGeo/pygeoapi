@@ -348,6 +348,11 @@ def test_get_collection_items(config, api_):
 
     assert code == HTTPStatus.BAD_REQUEST
 
+    req = mock_api_request({'datetime': '99999999999999999999'})
+    rsp_headers, code, response = get_collection_items(api_, req, 'obs')
+
+    assert code == HTTPStatus.BAD_REQUEST
+
     req = mock_api_request({'datetime': '2001-11-11/2003-12-18'})
     rsp_headers, code, response = get_collection_items(api_, req, 'obs')
 
