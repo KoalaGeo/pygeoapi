@@ -188,6 +188,15 @@ def test_apirequest(api_):
     assert apireq.get_linkrel(F_JSONLD) == 'self'
     assert apireq.get_linkrel(F_HTML) == 'alternate'
 
+    # Test accept header with q=0 (not acceptable) and malformed q values
+    hh = 'text/html;q=0,application/ld+json;q=0.5.5,application/json'
+    req = mock_request(HTTP_ACCEPT=hh, HTTP_ACCEPT_LANGUAGE='fr;q=0')
+    apireq = APIRequest(req, api_.locales)
+    assert apireq.is_valid()
+    assert apireq.format == F_JSON
+    assert apireq.raw_locale is None
+    assert apireq.locale.language == 'en'
+
     # Overrule HTTP content negotiation
     req = mock_request({'f': 'html'}, HTTP_ACCEPT='application/json')  # noqa
     apireq = APIRequest(req, api_.locales)
