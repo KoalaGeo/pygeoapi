@@ -104,7 +104,7 @@ In addition to ``PYGEOAPI_CONFIG`` and ``PYGEOAPI_OPENAPI``, the base Docker ima
 
    To learn more about the Admin API see :ref:`admin-api`.
 
-* ``CONTAINER_HOST``: sets the listening address for incoming connections (default is ``localhost``)
+* ``CONTAINER_HOST``: sets the listening address for incoming connections (default is ``0.0.0.0``)
 
    .. code-block:: bash
 
@@ -129,10 +129,47 @@ In addition to ``PYGEOAPI_CONFIG`` and ``PYGEOAPI_OPENAPI``, the base Docker ima
 
    .. code-block:: bash
 
-      docker run -p 5000:80 -e WSGI_WORKERS=10 -it geopython/pygeoapi
+      docker run -p 5000:80 -e WSGI_WORKER_TIMEOUT=120 -it geopython/pygeoapi
+
+* ``WSGI_KEEP_ALIVE``: sets the number of seconds Gunicorn keeps idle client connections open (default is ``75``).
+  This should be longer than the idle timeout of any load balancer, reverse proxy or ingress controller in front of
+  pygeoapi, otherwise the proxy may reuse a connection that Gunicorn has just closed, resulting in intermittent ``502`` errors
+
+* ``WSGI_GRACEFUL_TIMEOUT``: sets the number of seconds workers get to finish in-flight requests after receiving ``SIGTERM`` (default is ``30``)
+
+* ``WSGI_MAX_REQUESTS`` / ``WSGI_MAX_REQUESTS_JITTER``: restart each worker after (approximately) this many requests,
+  which bounds memory growth in long-running workers (default is ``0``, i.e. disabled)
+
+   .. code-block:: bash
+
+      docker run -p 5000:80 -e WSGI_MAX_REQUESTS=1000 -e WSGI_MAX_REQUESTS_JITTER=100 -it geopython/pygeoapi
+
+* ``WSGI_WORKER_TMP_DIR``: directory for Gunicorn worker heartbeat files (default is ``/dev/shm``, a tmpfs, which avoids
+  heartbeat stalls on overlay filesystems; Gunicorn's own default is used if the directory is not writable)
+
+* ``WSGI_ACCESS_LOG``: enables Gunicorn access logging to the given file, e.g. ``-`` for stdout (default is disabled)
+
+* ``PYGEOAPI_OPENAPI_GENERATE``: generate the OpenAPI document at container start (default is ``true``).  Set to ``false``
+  to use a pre-generated document at ``PYGEOAPI_OPENAPI`` instead (e.g. mounted from a Kubernetes ConfigMap), which speeds
+  up container start and works with a read-only root filesystem
 
 .. note::
    More information on Gunicorn settings can be found in the `official Gunicorn documentation <https://docs.gunicorn.org>`_
+
+Running on Kubernetes
+---------------------
+
+The following settings are recommended when running the image on Kubernetes:
+
+* Run as a non-root user by listening on an unprivileged port, e.g. ``CONTAINER_PORT=8080`` with a ``securityContext``
+  of ``runAsNonRoot: true`` and ``runAsUser: 1000`` (the image's files are group-writable by group ``0``)
+* Set ``WSGI_KEEP_ALIVE`` higher than the ingress / load balancer upstream idle timeout
+* Keep ``WSGI_GRACEFUL_TIMEOUT`` below the pod's ``terminationGracePeriodSeconds`` so in-flight requests complete on rollout
+* Size ``WSGI_WORKERS`` to the container's CPU limit rather than the node's CPU count
+* Pre-generate the OpenAPI document (``pygeoapi openapi generate``) as part of your build or a ConfigMap and set
+  ``PYGEOAPI_OPENAPI_GENERATE=false``, so that container start does not depend on every backend being reachable
+* Point liveness probes at a lightweight endpoint such as ``/conformance``, rather than ``/collections``, which
+  touches every configured backend
 
 Deploying on a sub-path
 -----------------------
