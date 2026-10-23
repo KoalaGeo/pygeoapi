@@ -46,10 +46,14 @@ https://docs.djangoproject.com/en/2.2/ref/settings/
 """
 
 import os
+from urllib.parse import urlparse
+
+from django.core.management.utils import get_random_secret_key
+
 # pygeoapi specific
 from pygeoapi.config import get_config
 from pygeoapi.openapi import load_openapi_document
-from pygeoapi.util import get_api_rules
+from pygeoapi.util import get_api_rules, str2bool
 
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -59,12 +63,15 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # See https://docs.djangoproject.com/en/2.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = ')#cqm2jfato)gk((nm#%r7h&#n&aqy00_21pavfp=l8)4%cegb'
+# Set PYGEOAPI_DJANGO_SECRET_KEY to a stable value in production, otherwise
+# a random key is generated for each process
+SECRET_KEY = (os.environ.get('PYGEOAPI_DJANGO_SECRET_KEY') or
+              get_random_secret_key())
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = str2bool(os.environ.get('PYGEOAPI_DJANGO_DEBUG', False))
 
-ALLOWED_HOSTS = []
+# ALLOWED_HOSTS is set below, once the pygeoapi configuration is loaded
 
 
 # Application definition
@@ -171,6 +178,20 @@ PYGEOAPI_CONFIG = get_config()
 OPENAPI_DOCUMENT = load_openapi_document()
 
 API_RULES = get_api_rules(PYGEOAPI_CONFIG)
+
+# Host names this site can serve: PYGEOAPI_DJANGO_ALLOWED_HOSTS (comma
+# separated), or else localhost plus the host of server.url
+if os.environ.get('PYGEOAPI_DJANGO_ALLOWED_HOSTS'):
+    ALLOWED_HOSTS = [
+        host.strip()
+        for host in os.environ['PYGEOAPI_DJANGO_ALLOWED_HOSTS'].split(',')
+        if host.strip()
+    ]
+else:
+    ALLOWED_HOSTS = ['localhost', '127.0.0.1', '[::1]']
+    _server_host = urlparse(PYGEOAPI_CONFIG['server']['url']).hostname
+    if _server_host and _server_host not in ALLOWED_HOSTS:
+        ALLOWED_HOSTS.append(_server_host)
 
 # Defaults to True in Django
 # https://docs.djangoproject.com/en/3.2/ref/settings/#append-slash

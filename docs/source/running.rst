@@ -18,6 +18,12 @@ but Starlette and Django are available as well.
 
 Using the ``--starlette`` or ``--django`` flags will start pygeoapi using the specified server technology.
 
+Add ``--debug`` to enable the framework's debug mode (e.g. Flask's interactive debugger and auto-reloader).
+
+.. warning::
+   Debug mode allows arbitrary code execution from the browser via the interactive debugger.  Only use it
+   on a trusted, local development machine, and never with a server bound to a public interface.
+
 It is also advisable to install the development dependencies (contained in the requirements-dev.txt file) for running pygeoapi for 
 development. To do so, run the following command:
 
@@ -140,6 +146,12 @@ After Django rependencies is installed, pygeoapi can be run as follows:
     pygeoapi serve --django
 
 As a result, your Django application will be available at http://localhost:5000/.
+
+The Django settings are configured through the following environment variables:
+
+* ``PYGEOAPI_DJANGO_SECRET_KEY``: Django ``SECRET_KEY``. Set a stable, secret value in production (default: a random key per process)
+* ``PYGEOAPI_DJANGO_DEBUG``: Django ``DEBUG`` mode (default: ``false``; ``pygeoapi serve --django --debug`` sets it to ``true``)
+* ``PYGEOAPI_DJANGO_ALLOWED_HOSTS``: comma-separated Django ``ALLOWED_HOSTS`` (default: ``localhost``, ``127.0.0.1``, ``[::1]`` and the host of ``server.url``)
 
 
 To integrate pygeoapi as part of another Django project in a pluggable it is necessary to add the pygeoapi urls to the 
