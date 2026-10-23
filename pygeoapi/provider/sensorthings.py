@@ -41,7 +41,8 @@ from pygeoapi.provider.base import (
     BaseProvider, ProviderQueryError, ProviderConnectionError,
     ProviderInvalidDataError)
 from pygeoapi.util import (
-    url_join, get_provider_default, get_base_url, get_typed_value)
+    url_join, get_provider_default, get_base_url, get_typed_value,
+    HTTP_TIMEOUT)
 
 LOGGER = logging.getLogger(__name__)
 
@@ -170,7 +171,8 @@ class SensorThingsProvider(BaseProvider):
 
         :returns: identifier of created item
         """
-        response = self.http.post(self._url, json=item)
+        response = self.http.post(self._url, json=item,
+                                  timeout=HTTP_TIMEOUT)
 
         if response.status_code == 201:
             location = response.headers.get("Location")
@@ -194,7 +196,8 @@ class SensorThingsProvider(BaseProvider):
         id = f"'{identifier}'" \
              if isinstance(identifier, str) else str(identifier)
         LOGGER.debug(f'Updating @iot.id: {id}')
-        response = self.http.put(f"{self._url}({id})", json=item)
+        response = self.http.put(f"{self._url}({id})", json=item,
+                                 timeout=HTTP_TIMEOUT)
 
         if response.status_code == 200:
             return True
@@ -213,7 +216,8 @@ class SensorThingsProvider(BaseProvider):
         id = f"'{identifier}'" \
              if isinstance(identifier, str) else str(identifier)
         LOGGER.debug(f'Deleting @iot.id: {id}')
-        response = self.http.delete(f"{self._url}({id})")
+        response = self.http.delete(f"{self._url}({id})",
+                                    timeout=HTTP_TIMEOUT)
 
         if response.status_code == 200:
             return True
@@ -343,7 +347,7 @@ class SensorThingsProvider(BaseProvider):
             entity_ = entity or self.entity
             params.update({'$expand': self.expand[entity_]})
 
-        r = self.http.get(url, params=params)
+        r = self.http.get(url, params=params, timeout=HTTP_TIMEOUT)
 
         if not r.ok:
             LOGGER.error('Bad http response code')

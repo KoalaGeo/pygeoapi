@@ -73,6 +73,11 @@ LOGGER = logging.getLogger(__name__)
 
 DATETIME_FORMAT = '%Y-%m-%dT%H:%M:%S.%fZ'
 
+#: Timeout (seconds) for outbound HTTP requests to remote data sources,
+#: pub/sub brokers, etc. Without a timeout, a slow or unresponsive upstream
+#: holds a worker indefinitely. Override with `PYGEOAPI_HTTP_TIMEOUT`
+HTTP_TIMEOUT = float(os.environ.get('PYGEOAPI_HTTP_TIMEOUT', 60))
+
 THISDIR = Path(__file__).parent.resolve()
 RESOURCESDIR = THISDIR / 'resources'
 TEMPLATESDIR = THISDIR / 'templates'
@@ -625,7 +630,7 @@ def read_data(path: Union[Path, str]) -> Union[bytes, str]:
             return fh.read()
     else:
         LOGGER.debug('network file')
-        with urlopen(path) as r:
+        with urlopen(path, timeout=HTTP_TIMEOUT) as r:
             return r.read()
 
 

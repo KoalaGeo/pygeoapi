@@ -344,6 +344,14 @@ the environment using a syntax like: ``value: ${ENV_VAR:-the default}``
            title:
                en: This is pygeoapi host ${MY_HOST} and port ${MY_PORT:-5000}, nice to meet you!
 
+Outbound HTTP request timeout
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+Requests that pygeoapi makes to remote services (e.g. WMS/WMTS facades, MVT proxies, ERDDAP,
+SensorThings, ESRI, HTTP pub/sub brokers) time out after 60 seconds by default, so that an
+unresponsive upstream cannot hold a worker indefinitely. Set the ``PYGEOAPI_HTTP_TIMEOUT``
+environment variable (in seconds) to change this.
+
 Adding links to collections
 ---------------------------
 

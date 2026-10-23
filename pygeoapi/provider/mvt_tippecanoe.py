@@ -47,7 +47,7 @@ from pygeoapi.models.provider.base import (
     TileSetMetadata, TileMatrixSetEnum, LinkType)
 from pygeoapi.models.provider.mvt import MVTTilesJson
 
-from pygeoapi.util import is_url, url_join
+from pygeoapi.util import HTTP_TIMEOUT, is_url, url_join
 
 LOGGER = logging.getLogger(__name__)
 
@@ -91,7 +91,7 @@ class MVTTippecanoeProvider(BaseMVTProvider):
                 'metadata')
 
             metadata_path = f'{baseurl}/{layer}/metadata.json'
-            head = requests.head(metadata_path)
+            head = requests.head(metadata_path, timeout=HTTP_TIMEOUT)
             if head.status_code != 200:
                 msg = f'Service metadata does not exist: {metadata_path}'
                 LOGGER.error(msg)
@@ -184,10 +184,12 @@ class MVTTippecanoeProvider(BaseMVTProvider):
 
         extension = Path(url.path).suffix  # e.g. ".pbf"
 
+        resp = None
+
         try:
             with requests.Session() as session:
-                session.get(base_url)
-                resp = session.get(f'{base_url}/{layer}/{z}/{x}/{y}{extension}')  # noqa
+                resp = session.get(f'{base_url}/{layer}/{z}/{x}/{y}{extension}',  # noqa
+                                   timeout=HTTP_TIMEOUT)
 
                 if resp.status_code == 404:
                     if (self.is_in_limits(TileMatrixSetEnum.WEBMERCATORQUAD.value, z, x, y)): # noqa
@@ -198,7 +200,7 @@ class MVTTippecanoeProvider(BaseMVTProvider):
                 return resp.content
         except requests.exceptions.RequestException as e:
             LOGGER.debug(e)
-            if resp.status_code < 500:
+            if resp is not None and resp.status_code < 500:
                 raise ProviderInvalidQueryError  # Client is sending an invalid request # noqa
             raise ProviderGenericError  # Server error
 
@@ -271,7 +273,8 @@ class MVTTippecanoeProvider(BaseMVTProvider):
                     metadata_json_content = json.loads(md_file.read())
         elif is_url(service_metadata_url):
             with requests.Session() as session:
-                resp = session.get(service_metadata_url)
+                resp = session.get(service_metadata_url,
+                                   timeout=HTTP_TIMEOUT)
                 resp.raise_for_status()
                 metadata_json_content = json.loads(resp.content)
         else:

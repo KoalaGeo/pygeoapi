@@ -40,7 +40,7 @@ from pygeoapi.provider.base import (ProviderConnectionError,
 from pygeoapi.provider.tile import ProviderTileNotFoundError
 from pygeoapi.models.provider.base import (
     TileSetMetadata, LinkType)
-from pygeoapi.util import is_url, url_join
+from pygeoapi.util import HTTP_TIMEOUT, is_url, url_join
 
 LOGGER = logging.getLogger(__name__)
 
@@ -170,11 +170,12 @@ class MVTProxyProvider(BaseMVTProvider):
 
             try:
                 with requests.Session() as session:
-                    session.get(base_url)
                     if '.' in url.path:
-                        resp = session.get(f'{base_url}/{layer}/{z}/{x}/{y}.{format_}{url_query}')  # noqa
+                        resp = session.get(f'{base_url}/{layer}/{z}/{x}/{y}.{format_}{url_query}',  # noqa
+                                           timeout=HTTP_TIMEOUT)
                     else:
-                        resp = session.get(f'{base_url}/{layer}/{z}/{x}/{y}{url_query}')  # noqa
+                        resp = session.get(f'{base_url}/{layer}/{z}/{x}/{y}{url_query}',  # noqa
+                                           timeout=HTTP_TIMEOUT)
 
                     if resp.status_code in [404, 500]:
                         if (self.is_in_limits(self.get_tilematrixset(tileset), z, x, y)): # noqa
@@ -185,7 +186,7 @@ class MVTProxyProvider(BaseMVTProvider):
                     return resp.content
             except requests.exceptions.RequestException as e:
                 LOGGER.debug(e)
-                if resp and resp.status_code < 500:
+                if resp is not None and resp.status_code < 500:
                     raise ProviderInvalidQueryError  # Client is sending an invalid request # noqa
                 raise ProviderGenericError  # Server error
         else:

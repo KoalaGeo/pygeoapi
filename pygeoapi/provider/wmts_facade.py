@@ -42,7 +42,7 @@ from pygeoapi.provider.base import (ProviderConnectionError,
                                     ProviderGenericError)
 from pygeoapi.models.provider.base import (
     TileMatrixSetEnum, TilesMetadataFormat, TileSetMetadata, LinkType)
-from pygeoapi.util import is_url, url_join
+from pygeoapi.util import HTTP_TIMEOUT, is_url, url_join
 
 LOGGER = logging.getLogger(__name__)
 
@@ -171,9 +171,11 @@ class WMTSFacadeProvider(BaseTileProvider):
 
             LOGGER.debug(f'WMTS 1.0.0 request url: {request_url}')
 
+            resp = None
+
             try:
                 with requests.Session() as session:
-                    resp = session.get(request_url)
+                    resp = session.get(request_url, timeout=HTTP_TIMEOUT)
 
                     if resp.status_code == 400:
 
@@ -188,7 +190,7 @@ class WMTSFacadeProvider(BaseTileProvider):
 
             except requests.exceptions.RequestException as e:
                 LOGGER.debug(e)
-                if resp.status_code < 500:
+                if resp is not None and resp.status_code < 500:
                     raise ProviderInvalidQueryError  # Client is sending an invalid request # noqa
                 raise ProviderGenericError  # Server error
 

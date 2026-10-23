@@ -40,6 +40,7 @@ import requests
 
 
 from pygeoapi.provider.base import BaseProvider, ProviderQueryError
+from pygeoapi.util import HTTP_TIMEOUT
 
 LOGGER = logging.getLogger(__name__)
 
@@ -128,7 +129,7 @@ class WMSFacadeProvider(BaseProvider):
 
         LOGGER.debug(f'WMS {version} request url: {request_url}')
 
-        response = requests.get(request_url)
+        response = requests.get(request_url, timeout=HTTP_TIMEOUT)
 
         if b'ServiceException' in response.content:
             msg = f'WMS error: {response.content}'
