@@ -45,6 +45,7 @@ import pathlib
 from pathlib import Path
 import re
 import socket
+from time import monotonic
 from typing import Any, IO, Union, List, Optional
 from urllib.parse import urlparse
 from urllib.request import urlopen
@@ -665,11 +666,19 @@ def get_envelope(coords_list: List[List[float]]) -> list:
 class UrlPrefetcher:
     """ Prefetcher to get HTTP headers for specific URLs.
     Allows a maximum of 1 redirect by default.
+
+    Results are cached per URL (and request options): successful responses
+    for `ttl` seconds, failures for `error_ttl` seconds. This keeps API
+    responses that reference remote resources (e.g. collection enclosure
+    links) from issuing blocking HTTP requests on every call.
     """
 
-    def __init__(self):
+    def __init__(self, ttl: float = 3600, error_ttl: float = 60):
         self._session = Session()
         self._session.max_redirects = 1
+        self._ttl = ttl
+        self._error_ttl = error_ttl
+        self._cache = {}
 
     def get_headers(self, url: str, **kwargs) -> CaseInsensitiveDict:
         """ Issues an HTTP HEAD request to the given URL.
@@ -680,12 +689,22 @@ class UrlPrefetcher:
         """
         kwargs.setdefault('timeout', 1)
         kwargs.setdefault('allow_redirects', True)
+
+        key = (url, repr(sorted(kwargs.items())))
+        cached = self._cache.get(key)
+        if cached is not None and cached[0] > monotonic():
+            return cached[1]
+
         try:
             response = self._session.head(url, **kwargs)
             response.raise_for_status()
         except Exception:  # noqa
-            return CaseInsensitiveDict()
-        return response.headers
+            headers, ttl = CaseInsensitiveDict(), self._error_ttl
+        else:
+            headers, ttl = response.headers, self._ttl
+
+        self._cache[key] = (monotonic() + ttl, headers)
+        return headers
 
 
 def bbox2geojsongeometry(bbox: list) -> dict:
